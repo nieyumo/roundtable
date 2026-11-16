@@ -107,6 +107,83 @@
       .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
       .warn { color: var(--amber); font-size: 12px; margin-top: 14px; line-height: 1.6; }
       .primary { background: #e7e1d4; color: #17150f; border: none; font-weight: 650; }
+
+      /* ---------- 手机：单栏 + 两个抽屉 ---------- */
+      .iconbtn { display: none; align-items: center; justify-content: center; padding: 6px 10px; }
+      #scrim { display: none; }
+
+      @media (max-width: 760px) {
+        html, body { max-width: 100%; overflow-x: hidden; }
+        #app { grid-template-columns: minmax(0, 1fr); height: 100dvh; width: 100%; }
+
+        #sidebar {
+          position: fixed; top: 0; bottom: 0; left: 0; width: 78vw; max-width: 300px;
+          z-index: 30; transform: translateX(-101%); transition: transform .22s ease;
+          box-shadow: 0 0 40px rgba(0,0,0,.6);
+        }
+        body.nav-open #sidebar { transform: none; }
+
+        #board {
+          position: fixed; top: 0; bottom: 0; right: 0; width: 88vw; max-width: 380px;
+          z-index: 30; transform: translateX(101%); transition: transform .22s ease;
+          box-shadow: 0 0 40px rgba(0,0,0,.6);
+        }
+        body.board-open #board { transform: none; }
+
+        #scrim {
+          display: block; position: fixed; inset: 0; z-index: 20;
+          background: rgba(0,0,0,.55); opacity: 0; pointer-events: none;
+          transition: opacity .2s ease;
+        }
+        body.nav-open #scrim, body.board-open #scrim { opacity: 1; pointer-events: auto; }
+
+        .iconbtn { display: inline-flex; flex: 0 0 auto; }
+
+        main { min-width: 0; }
+        header { flex-wrap: wrap; gap: 8px 8px; padding: 10px 12px; min-width: 0; }
+        #navbtn { order: 0; }
+        .seg { order: 1; flex: 1 1 auto; min-width: 0; }
+        .seg button { padding: 6px 6px; font-size: 12.5px; flex: 1 1 0; min-width: 0; }
+        #boardbtn { order: 2; }
+        .chips { display: none; }
+        .rounds { order: 3; width: 100%; font-size: 12.5px; min-width: 0; }
+        .rounds input { flex: 1 1 auto; min-width: 0; }
+
+        #banners { padding: 0 12px; }
+        .banner { font-size: 12.5px; padding: 8px 10px; }
+
+        #messages { padding: 14px 12px 6px; min-width: 0; }
+        .msg { grid-template-columns: 26px minmax(0, 1fr); gap: 8px; margin-bottom: 16px; min-width: 0; }
+        .msg-body { font-size: 14.5px; line-height: 1.75; overflow-wrap: anywhere; }
+        .avatar { width: 26px; height: 26px; font-size: 11px; }
+        .msg-name { font-size: 13px; }
+        .divider { margin: 18px 0 14px; font-size: 11.5px; }
+        .plan-card { padding: 9px 11px; }
+        .tool-line { font-size: 11.5px; }
+
+        .empty { margin: 8vh auto; padding: 0 6px; }
+        .empty h1 { font-size: 18px; }
+        .hint { padding: 8px 12px; }
+
+        footer { padding: 8px 12px calc(10px + env(safe-area-inset-bottom)); gap: 7px; }
+        .panel { padding: 7px 9px; }
+        .panel-row { gap: 6px; }
+        .panel-row .who { width: 38px; font-size: 11.5px; }
+        .panel-row input, #pref { font-size: 16px; }  /* 16px 以下 iOS 会自动放大页面 */
+        .compose { gap: 8px; }
+        #input { font-size: 16px; padding: 9px 11px; }
+        #send { padding: 10px 16px; }
+
+        #board h2 { font-size: 12px; }
+        dialog { padding: 18px; }
+        .field { grid-template-columns: 1fr; gap: 3px; }
+        .field span { font-size: 12px; color: var(--muted); }
+        .field input { font-size: 16px; }
+      }
+
+      @media (max-width: 380px) {
+        .seg button { padding: 6px 5px; font-size: 12px; }
+      }
     </style>
   </head>
   <body>
@@ -120,6 +197,7 @@
 
       <main>
         <header>
+          <button id="navbtn" class="iconbtn" aria-label="会话列表">☰</button>
           <div class="seg" id="modes">
             <button data-mode="assign">指派</button>
             <button data-mode="self" class="on">自组织</button>
@@ -127,6 +205,7 @@
           </div>
           <label class="rounds">讨论 <input id="rounds" type="range" min="1" max="3" value="2" /><span id="rounds-val">2</span> 轮</label>
           <div class="chips" id="chips"></div>
+          <button id="boardbtn" class="iconbtn" aria-label="黑板">黑板</button>
         </header>
 
         <div id="banners"></div>
@@ -168,6 +247,8 @@
         <div id="board-body"><p class="muted">还没开始。一句话结论、没谈拢的分歧、这次的分工，会写在这里。</p></div>
       </aside>
     </div>
+
+    <div id="scrim"></div>
 
     <dialog id="dlg">
       <h3>钥匙和模型</h3>
@@ -707,7 +788,7 @@ ${HARD_RULES}`,
         ul.textContent = '';
         for (const s of sessions) {
           const li = el('li', s.id === currentId ? 'on' : '', s.title || '未命名');
-          li.onclick = () => { currentId = s.id; persist(); renderAll(); };
+          li.onclick = () => { currentId = s.id; persist(); renderAll(); closeDrawers(); };
           ul.append(li);
         }
       }
@@ -926,6 +1007,18 @@ ${HARD_RULES}`,
       }
 
       $('#settings').onclick = openSettings;
+
+      const closeDrawers = () => document.body.classList.remove('nav-open', 'board-open');
+      $('#navbtn').onclick = () => {
+        const on = document.body.classList.toggle('nav-open');
+        if (on) document.body.classList.remove('board-open');
+      };
+      $('#boardbtn').onclick = () => {
+        const on = document.body.classList.toggle('board-open');
+        if (on) document.body.classList.remove('nav-open');
+      };
+      $('#scrim').onclick = closeDrawers;
+      window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawers(); });
       $('#save').onclick = () => {
         for (const p of ['deepseek', 'openai', 'gemini']) {
           const k = $('#k-' + p).value.trim();
