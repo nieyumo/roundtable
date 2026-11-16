@@ -1,0 +1,991 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>多 AI 圆桌</title>
+    <style>
+      :root {
+        --bg: #15140f; --panel: #1b1a15; --panel2: #22201a; --line: #302e26; --line2: #262419;
+        --ink: #ece7dc; --ink2: #c7c1b4; --muted: #8c867a;
+        --blue: #6ea2ff; --orange: #f0a35e; --green: #55c98d; --red: #ef6b6b; --amber: #e8c88a;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        font: 14px/1.7 "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+        color: var(--ink); background: var(--bg); overflow: hidden; -webkit-font-smoothing: antialiased;
+      }
+      button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--panel2); color: var(--ink2); border-radius: 8px; padding: 6px 12px; }
+      button:hover { border-color: #454136; color: var(--ink); }
+      button:disabled { opacity: .4; cursor: not-allowed; }
+      ::-webkit-scrollbar { width: 10px; height: 10px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #33302a; border-radius: 6px; border: 3px solid var(--bg); }
+      #app { display: grid; grid-template-columns: 200px minmax(0, 1fr) 290px; height: 100vh; }
+      #sidebar { border-right: 1px solid var(--line); padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; min-height: 0; background: #121109; }
+      .brand { display: flex; align-items: center; gap: 6px; font-size: 15px; }
+      .brand b { margin-left: 4px; font-weight: 650; }
+      .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+      .dot.b { background: var(--blue); box-shadow: 0 0 8px rgba(110,162,255,.55); }
+      .dot.c { background: var(--orange); box-shadow: 0 0 8px rgba(240,163,94,.55); }
+      .dot.e { background: var(--green); box-shadow: 0 0 8px rgba(85,201,141,.5); }
+      .ghost { background: transparent; color: var(--muted); border-color: var(--line2); }
+      .wide { width: 100%; }
+      #sessions { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+      #sessions li { padding: 7px 9px; border-radius: 7px; cursor: pointer; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+      #sessions li:hover { background: #1e1c15; color: var(--ink2); }
+      #sessions li.on { background: #262319; color: var(--ink); font-weight: 600; }
+      main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+      header { display: flex; align-items: center; gap: 14px; padding: 12px 20px; border-bottom: 1px solid var(--line); }
+      .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+      .seg button { border: none; border-radius: 0; padding: 5px 13px; background: transparent; color: var(--muted); }
+      .seg button.on { background: #322f26; color: var(--ink); }
+      .rounds { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+      .rounds input { width: 84px; accent-color: #6b6558; }
+      #rounds-val { color: var(--ink2); font-variant-numeric: tabular-nums; }
+      .chips { margin-left: auto; display: flex; gap: 6px; font-size: 12px; color: var(--muted); }
+      .chip { border: 1px solid var(--line2); border-radius: 999px; padding: 2px 9px; display: inline-flex; gap: 5px; align-items: center; background: #1a1913; }
+      .chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+      .chip.off i { background: var(--red); }
+      #banners { padding: 0 20px; }
+      .banner { margin-top: 10px; padding: 9px 12px; border-radius: 9px; font-size: 13px; background: #241f12; border: 1px solid #3d3319; color: var(--amber); display: flex; gap: 10px; align-items: center; }
+      #messages { flex: 1; overflow-y: auto; padding: 18px 20px 8px; min-height: 0; }
+      .empty { max-width: 520px; margin: 12vh auto; text-align: center; color: var(--muted); }
+      .empty h1 { font-size: 20px; color: var(--ink); font-weight: 650; margin: 0 0 8px; }
+      .hint { font-size: 13px; color: var(--ink2); background: #1e1c16; margin: 4px; }
+      .msg { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; margin-bottom: 18px; }
+      .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #12110c; font-size: 12px; font-weight: 700; margin-top: 2px; }
+      .msg-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+      .msg-name { font-weight: 650; font-size: 13.5px; }
+      .msg-seat { font-size: 11px; color: #6b6659; border: 1px solid var(--line2); border-radius: 999px; padding: 0 6px; }
+      .msg-meta { color: #6b6659; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+      .msg-body { white-space: pre-wrap; word-break: break-word; margin-top: 2px; color: var(--ink2); }
+      .msg.streaming .msg-body::after { content: "▍"; color: #5c574b; animation: blink 1s steps(2) infinite; }
+      @keyframes blink { 50% { opacity: 0; } }
+      .msg.failed .msg-body { color: var(--red); }
+      .msg.user .avatar { background: #4a4740; }
+      .msg.user .msg-body { background: #23211a; border: 1px solid var(--line2); border-radius: 10px; padding: 8px 12px; display: inline-block; color: var(--ink); }
+      .warn-dot { width: 7px; height: 7px; border-radius: 50%; background: #d9a520; display: inline-block; }
+      .divider { display: flex; align-items: center; gap: 12px; color: #625d51; font-size: 12px; margin: 22px 0 16px; }
+      .divider::before, .divider::after { content: ""; height: 1px; background: var(--line); flex: 1; }
+      .plan-card { border: 1px solid var(--line2); background: #191811; border-radius: 10px; padding: 10px 14px; margin: 0 0 18px; }
+      .plan-head { font-size: 11.5px; color: #6b6659; margin-bottom: 6px; }
+      .plan-row { border-left: 3px solid #3d4a63; padding: 2px 0 2px 10px; margin: 8px 0; }
+      .plan-who { color: var(--muted); font-weight: 400; font-size: 12px; }
+      .plan-line { color: var(--ink2); font-size: 13px; margin-top: 2px; }
+      .tool-line { margin-top: 8px; padding: 5px 9px; border-radius: 7px; background: #191811; border: 1px dashed #33302a; font-size: 12px; color: #8c867a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .tool-name { color: #9fb6d8; }
+      footer { border-top: 1px solid var(--line); padding: 10px 20px 14px; display: flex; flex-direction: column; gap: 8px; }
+      .panel { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid var(--line2); border-radius: 10px; background: #191811; }
+      .panel.hidden { display: none; }
+      .panel-title { font-size: 11.5px; color: #6b6659; }
+      .panel-row { display: flex; align-items: center; gap: 8px; }
+      .panel-row .who { width: 44px; font-size: 12px; flex: none; }
+      .panel-row input, #pref { flex: 1; font: inherit; font-size: 13px; padding: 5px 9px; border-radius: 7px; border: 1px solid var(--line2); background: #23211a; color: var(--ink); outline: none; }
+      .compose { display: flex; gap: 10px; align-items: flex-end; }
+      #input { flex: 1; resize: none; font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: #1b1a14; color: var(--ink); outline: none; max-height: 160px; }
+      #input::placeholder { color: #5f5a4e; }
+      #send { background: #e7e1d4; color: #17150f; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 650; }
+      #hint { color: #5f5a4e; font-size: 11px; text-align: center; }
+      #board { border-left: 1px solid var(--line); padding: 16px; overflow-y: auto; background: #131208; }
+      #board h2 { font-size: 12px; letter-spacing: .14em; color: #6f6a5c; margin: 0 0 12px; }
+      .board-sec { margin-bottom: 16px; }
+      .board-sec h4 { margin: 0 0 5px; font-size: 11.5px; color: #6f6a5c; font-weight: 600; }
+      .board-sec p, .board-sec li { font-size: 13px; margin: 0 0 3px; color: var(--ink2); }
+      .board-sec ul { margin: 0; padding-left: 16px; }
+      .muted { color: #6b6659; font-size: 13px; }
+      .conclusion { background: #1d1b14; border: 1px solid #322e22; border-radius: 9px; padding: 10px 12px; font-size: 13px; color: var(--ink); }
+      dialog { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 14px; padding: 22px; width: min(560px, 92vw); }
+      dialog::backdrop { background: rgba(0,0,0,.6); }
+      dialog h3 { margin: 0 0 4px; font-size: 16px; }
+      dialog p { color: var(--muted); font-size: 12.5px; margin: 0 0 16px; }
+      .field { display: grid; grid-template-columns: 84px 1fr; gap: 8px; align-items: center; margin-bottom: 9px; }
+      .field span { font-size: 13px; color: var(--ink2); }
+      .field input { font: inherit; font-size: 13px; padding: 6px 9px; border-radius: 7px; border: 1px solid var(--line2); background: #23211a; color: var(--ink); outline: none; width: 100%; }
+      .field input:focus { border-color: #4a4438; }
+      .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+      .warn { color: var(--amber); font-size: 12px; margin-top: 14px; line-height: 1.6; }
+      .primary { background: #e7e1d4; color: #17150f; border: none; font-weight: 650; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <div class="brand"><span class="dot b"></span><span class="dot c"></span><span class="dot e"></span><b>圆桌</b></div>
+        <button id="new" class="ghost wide">＋ 新建对话</button>
+        <ul id="sessions"></ul>
+        <button id="settings" class="ghost wide">设置</button>
+      </aside>
+
+      <main>
+        <header>
+          <div class="seg" id="modes">
+            <button data-mode="assign">指派</button>
+            <button data-mode="self" class="on">自组织</button>
+            <button data-mode="fuzzy">模糊偏好</button>
+          </div>
+          <label class="rounds">讨论 <input id="rounds" type="range" min="1" max="3" value="2" /><span id="rounds-val">2</span> 轮</label>
+          <div class="chips" id="chips"></div>
+        </header>
+
+        <div id="banners"></div>
+
+        <section id="messages">
+          <div class="empty" id="empty">
+            <h1>三个人，一个问题</h1>
+            <p>他们先去查各自该查的东西，然后回到桌上互相挑错，最后给你一句能用的判断。</p>
+            <div>
+              <button class="hint">茅台这只股票接下来会怎么走？</button>
+              <button class="hint">要不要自己写一个框架？</button>
+              <button class="hint">这个方案最坏会怎么坏？</button>
+            </div>
+          </div>
+        </section>
+
+        <footer>
+          <div id="assign" class="panel hidden">
+            <div class="panel-title">这次活你分（空的就跳过）</div>
+            <div class="panel-row"><span class="who" style="color:var(--blue)">鲸鱼娘</span><input data-role="builder" placeholder="让她干什么，要具体…" /></div>
+            <div class="panel-row"><span class="who" style="color:var(--orange)">龙娘</span><input data-role="critic" placeholder="让她重点查什么、盯什么…" /></div>
+            <div class="panel-row"><span class="who" style="color:var(--green)">双子娘</span><input data-role="engineer" placeholder="让她算清什么代价…" /></div>
+          </div>
+          <div id="fuzzy" class="panel hidden">
+            <input id="pref" placeholder="说个粗的就行：我主要怕亏 / 七成看能不能做，三成看新不新" />
+          </div>
+          <div class="compose">
+            <textarea id="input" rows="2" placeholder="Enter 发送 · Shift+Enter 换行"></textarea>
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <button id="send">提问</button>
+              <small id="hint"></small>
+            </div>
+          </div>
+        </footer>
+      </main>
+
+      <aside id="board">
+        <h2>黑板</h2>
+        <div id="board-body"><p class="muted">还没开始。一句话结论、没谈拢的分歧、这次的分工，会写在这里。</p></div>
+      </aside>
+    </div>
+
+    <dialog id="dlg">
+      <h3>钥匙和模型</h3>
+      <p>都只存在这台机器的浏览器里（localStorage），不会发到别处。留空 = 这个人不上场。</p>
+      <div class="field"><span>DeepSeek</span><input id="k-deepseek" placeholder="sk-…" autocomplete="off" /></div>
+      <div class="field"><span>模型</span><input id="m-deepseek" placeholder="deepseek-chat" /></div>
+      <div class="field"><span>OpenAI</span><input id="k-openai" placeholder="sk-…" autocomplete="off" /></div>
+      <div class="field"><span>模型</span><input id="m-openai" placeholder="gpt-5.2" /></div>
+      <div class="field"><span>Gemini</span><input id="k-gemini" placeholder="AQ.… / AIza…" autocomplete="off" /></div>
+      <div class="field"><span>模型</span><input id="m-gemini" placeholder="gemini-3.6-flash" /></div>
+      <p class="warn">
+        浏览器直连所以：行情、新闻都能查（走的都是允许跨域的接口），<b>但任意网页抓不了</b>——跨域会拦。<br />
+        另外这个页面是纯静态的，<b>别把你的 key 写进文件里再公开托管</b>；填在设置里才安全。
+      </p>
+      <div class="dlg-actions">
+        <button id="demo">用假数据试一下</button>
+        <button id="save" class="primary">保存</button>
+      </div>
+    </dialog>
+
+    <script>
+      /* =========================================================
+         多 AI 圆桌 · 单文件版
+         没有后端。key 存 localStorage，请求直接从浏览器发出去。
+         ========================================================= */
+
+      const PROVIDERS = {
+        deepseek: { baseURL: 'https://api.deepseek.com/v1', model: 'deepseek-chat', label: 'DeepSeek' },
+        openai: { baseURL: 'https://api.openai.com/v1', model: 'gpt-5.2', label: 'OpenAI' },
+        gemini: { baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-3.6-flash', label: 'Gemini' },
+      };
+
+      const CHARACTERS = {
+        deepseek: { name: '鲸鱼娘', full: 'DeepSeek 娘', tagline: '蓝发鲸鱼娘', traits: ['蓝发鲸尾', '黑白女仆裙'] },
+        openai: { name: '龙娘', full: 'GPT 娘', tagline: '白发龙娘', traits: ['白发龙角', '白金礼服', '龙尾龙翼'] },
+        gemini: { name: '双子娘', full: 'Gemini 娘', tagline: '异色瞳猫耳', traits: ['蓝紫长发', '猫耳', '异色瞳'] },
+      };
+
+      const COLORS = { builder: '#6ea2ff', critic: '#f0a35e', engineer: '#55c98d', user: '#4a4740' };
+      const SEAT = { builder: '推进派', critic: '挑刺派', engineer: '落地派' };
+
+      const HARD_RULES = `三条硬规矩：
+1. 不许用「同意」「赞同」「说得对」「好主意」开头。
+2. 要评价别人，必须引用他原话里的一个具体词、数字或者判断。说不出具体在哪，就别评价。
+3. 不许重复自己上一轮说过的话。`;
+
+      const VOICE = `说话方式（这比内容更影响别人看不看得下去）：
+- 每次 150~250 字。超了没人看，短一点反而有劲。
+- 像开会时真人在说话：短句、有判断、可以反问一句。
+- 不许用小标题，不许「首先/其次/最后」，不许一口气列五条。
+- 别人刚说的东西，你要么接住、要么打回去，别自说自话。`;
+
+      const ROLE = {
+        builder: `在这场讨论里你坐「推进派」这个位置。三个人里你最不耐烦，你想快点看到一个能下手的结论。
+
+你的价值是往前推：给判断、给顺序、敢说「就先这么干」。
+你不说「视情况而定」「需要综合考虑」——那是把选择权又丢回去。
+
+${VOICE}
+
+${HARD_RULES}`,
+        critic: `在这场讨论里你坐「挑刺派」这个位置。你多疑，专门盯别人话里那些没根的东西。
+
+你的价值是提前把坑挖出来：这个数字是哪天的、这个结论在什么情况下会反过来、这条新闻是不是三个月前的。
+你从不为了显得友善而放过问题，但你的每条质疑都要指着具体的东西，不能是「整体上还需谨慎」。
+
+${VOICE}
+
+${HARD_RULES}`,
+        engineer: `在这场讨论里你坐「落地派」这个位置。你只关心一件事：这东西真做起来是什么样、代价是什么、出了问题谁兜。
+
+你的价值是把话拉回地面：要多少钱、要多久、卡在哪、能不能验证。
+你会给数字，哪怕是估的——没有数字的判断在你看来就是没判断。
+
+${VOICE}
+
+${HARD_RULES}`,
+      };
+
+      const TOOL_MANUAL = `你手上有两个工具，需要时在回复里直接写，我会去查、把结果回填给你（一次最多两个）：
+
+@quote(600519)        查 A 股实时行情（现价、涨跌、振幅、成交量）
+@news(关键词)          搜最近的新闻标题
+
+规则：只查你真的需要的东西，别为了用而用。查完就基于结果说话，别再重复调用。`;
+
+      /* ---------------- 存储 ---------------- */
+
+      const LS = 'roundtable.v1';
+      const load = () => { try { return JSON.parse(localStorage.getItem(LS)) ?? {}; } catch { return {}; } };
+      const save = (v) => { try { localStorage.setItem(LS, JSON.stringify(v)); } catch {} };
+
+      const store = load();
+      const settings = store.settings ?? { keys: {}, models: {} };
+      settings.keys ??= {};
+      settings.models ??= {};
+      let sessions = store.sessions ?? [];
+      let currentId = store.currentId ?? null;
+
+      const persist = () => {
+        sessions = sessions.slice(0, 20);
+        const clean = sessions.map((s) => ({ ...s, agents: (s.agents ?? []).map(({ key, ...rest }) => rest) }));
+        save({ settings, sessions: clean, currentId });
+      };
+
+      /* ---------------- 小工具 ---------------- */
+
+      const $ = (s) => document.querySelector(s);
+      const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+      const uid = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      const nowISO = () => new Date().toISOString();
+
+      function agents() {
+        return ['deepseek', 'openai', 'gemini']
+          .filter((p) => settings.keys[p])
+          .map((p, i) => ({
+            id: 'a' + (i + 1),
+            role: ['builder', 'critic', 'engineer'][i],
+            provider: p,
+            model: settings.models[p] || PROVIDERS[p].model,
+            key: settings.keys[p],
+            character: CHARACTERS[p],
+          }));
+      }
+
+      const display = (a) => a?.character?.name ?? a?.provider ?? '?';
+
+      function addBubble(session) {
+        return session.turns.map((t) => t);
+      }
+
+      /* ---------------- 写进 localStorage 的会话 ---------------- */
+
+      function newSession(title = '新对话') {
+        const s = { id: uid('s'), title, createdAt: nowISO(), mode: 'self', rounds: 2, turns: [], tasks: [], preference: '', blackboard: { question: '' } };
+        sessions.unshift(s);
+        currentId = s.id;
+        persist();
+        return s;
+      }
+
+      const current = () => sessions.find((s) => s.id === currentId) ?? null;
+
+      function touch(s) {
+        s.updatedAt = nowISO();
+        sessions = [s, ...sessions.filter((x) => x.id !== s.id)];
+        currentId = s.id;
+        persist();
+      }
+
+      /* ---------------- 调模型 ---------------- */
+
+      function modernParams(model) { return /^(gpt-5|o[1-9])/i.test(model); }
+
+      function buildBody({ model, messages, temperature, maxTokens }) {
+        const b = { model, messages, stream: true };
+        if (modernParams(model)) b.max_completion_tokens = maxTokens;
+        else { b.max_tokens = maxTokens; b.temperature = temperature; }
+        if (/^gemini-3/i.test(model)) b.reasoning_effort = 'minimal';
+        return b;
+      }
+
+      async function streamChat({ agent, messages, maxTokens = 900, onDelta, signal }) {
+        if (agent.provider === 'demo') return demoChat({ messages, onDelta });
+
+        const friendly = (txt, status) => {
+          let msg = txt;
+          try {
+            const j = JSON.parse(txt);
+            msg = j.error?.message ?? j.message ?? txt;
+          } catch {}
+          if (status === 429) return '额度用完了（429）—— 换把 key 或者等一会儿';
+          if (status === 401 || status === 403) return 'key 不对或者没权限';
+          return String(msg).replace(/\s+/g, ' ').slice(0, 160);
+        };
+
+        const send = (body) =>
+          fetch(`${PROVIDERS[agent.provider].baseURL}/chat/completions`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', authorization: `Bearer ${agent.key}` },
+            body: JSON.stringify(body),
+            signal,
+          });
+
+        let res = await send(buildBody({ model: agent.model, messages, temperature: 0.7, maxTokens }));
+        if (!res.ok && res.status === 400) {
+          const hint = await res.text().catch(() => '');
+          if (/max_tokens|max_completion_tokens|temperature|reasoning/i.test(hint)) {
+            const alt = buildBody({ model: agent.model, messages, temperature: 0.7, maxTokens });
+            if (alt.max_tokens) { delete alt.max_tokens; alt.max_completion_tokens = maxTokens; }
+            else { delete alt.max_completion_tokens; alt.max_tokens = maxTokens; }
+            res = await send(alt);
+            if (!res.ok) throw new Error(friendly(await res.text().catch(() => ''), res.status));
+          } else throw new Error(friendly(hint, res.status));
+        }
+        if (!res.ok) throw new Error(friendly(await res.text().catch(() => ''), res.status));
+
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        let buf = '';
+        let text = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          let i;
+          while ((i = buf.indexOf('\n')) >= 0) {
+            const line = buf.slice(0, i).replace(/\r$/, '');
+            buf = buf.slice(i + 1);
+            if (!line.startsWith('data:')) continue;
+            const payload = line.slice(5).trim();
+            if (payload === '[DONE]') { text = text; break; }
+            try {
+              const j = JSON.parse(payload);
+              const d = j.choices?.[0]?.delta?.content ?? '';
+              if (d) { text += d; onDelta?.(d, text); }
+            } catch {}
+          }
+        }
+        return { text };
+      }
+
+      /* ---------------- 工具 ---------------- */
+
+      function normSymbol(raw) {
+        const s = String(raw ?? '').trim().toLowerCase().replace(/\s+/g, '');
+        if (/^(sh|sz|bj)\d{6}$/.test(s)) return s;
+        if (!/^\d{6}$/.test(s)) return null;
+        const h = s[0];
+        return (h === '6' || h === '9' ? 'sh' : h === '4' || h === '8' ? 'bj' : 'sz') + s;
+      }
+
+      async function quote(symbol) {
+        const code = normSymbol(symbol);
+        if (!code) return `【行情】看不懂代码「${symbol}」。A 股填 600519 这种六位数字。`;
+        try {
+          const res = await fetch(`https://qt.gtimg.cn/q=${code}`);
+          const text = new TextDecoder('gbk').decode(await res.arrayBuffer());
+          const m = text.match(/="([^"]*)"/);
+          if (!m) return `【行情】${code} 没数据`;
+          const f = m[1].split('~');
+          const n = (v) => (v === '' || v == null ? null : Number(v));
+          const [name, price, prev, open, vol, , , , , , , , , , , , , , , , , , , , , , , , , , , time, change, pct, high, low] = f;
+          return [
+            `【行情】${name}（${code}）${time ?? ''}`,
+            `现价 ${price}，昨收 ${prev}，涨跌 ${Number(change) > 0 ? '+' : ''}${change}（${pct}%）`,
+            `今开 ${open}，高 ${high}，低 ${low}，成交量 ${vol} 手`,
+          ].join('\n');
+        } catch (err) {
+          return `【行情】查不到：${err.message}`;
+        }
+      }
+
+      async function news(keyword) {
+        const q = String(keyword ?? '').trim();
+        const rss = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=zh-CN&gl=CN&ceid=CN:zh-Hans`;
+        try {
+          const res = await fetch(`https://api.rss2json.com/v1/api.json?count=8&rss_url=${encodeURIComponent(rss)}`);
+          const j = await res.json();
+          if (j.status !== 'ok' || !j.items?.length) return `【新闻】没搜到「${q}」的报道`;
+          const lines = j.items.slice(0, 6).map((it, i) => `${i + 1}. ${it.title}（${(it.pubDate ?? '').slice(0, 10)}）`);
+          return [`【新闻】「${q}」最近 ${j.items.length} 条：`, ...lines].join('\n');
+        } catch (err) {
+          return `【新闻】查不到：${err.message}`;
+        }
+      }
+
+      async function runTool(name, arg) {
+        if (name === 'quote') return quote(arg);
+        if (name === 'news') return news(arg);
+        return `【工具】不认识 ${name}`;
+      }
+
+      const TOOL_RE = /@(quote|news)\(\s*([^)\n]{1,120})\s*\)/g;
+
+      function parseToolCalls(text) {
+        const out = [];
+        const seen = new Set();
+        for (const m of String(text ?? '').matchAll(TOOL_RE)) {
+          const k = m[1] + ':' + m[2];
+          if (seen.has(k)) continue;
+          seen.add(k);
+          out.push({ name: m[1], arg: m[2].trim() });
+        }
+        return out.slice(0, 2);
+      }
+
+      /* ---------------- 提示词 ---------------- */
+
+      function systemFor(agent) {
+        const c = agent.character;
+        const head = c
+          ? `你叫「${c.name}」${c.full ? `（${c.full}）` : ''}${c.tagline ? `，${c.tagline}` : ''}。外形：${(c.traits ?? []).join('、')}。\n` +
+            '说话可以带一点她的脾气，但不许写动作描写、不许加颜文字、不许用第三人称讲你自己——这是开会，不是演舞台剧。\n\n'
+          : '';
+        return head + ROLE[agent.role];
+      }
+
+      const nameOf = (as, id) => (id === 'user' ? '你' : display(as.find((a) => a.id === id)));
+      const taskLine = (as, tasks) => (tasks ?? []).map((t) => `· ${nameOf(as, t.assignee)}：${t.lane ? `【${t.lane}】` : ''}${t.brief}`).join('\n');
+
+      const planMessages = (agent, session, pref) => [
+        { role: 'system', content: systemFor(agent) },
+        {
+          role: 'user',
+          content: `【问题】\n${session.blackboard.question}\n\n【我给的偏好】\n${pref || '我什么都没说，你看着办。'}\n\n现在你负责分活。把这件事拆成 2 到 3 块，让另外两个人（还有你自己）各接一块。\n\n只输出 JSON，不要解释、不要围栏：\n{"tasks":[{"assignee":"builder|critic|engineer","lane":"四个字内","brief":"给他的一句具体指令"}]}`,
+        },
+      ];
+
+      const workMessages = (agent, session, task) => [
+        { role: 'system', content: systemFor(agent) },
+        {
+          role: 'user',
+          content: `【问题】\n${session.blackboard.question}\n\n【这场讨论的分工】\n${taskLine(session.agents, session.tasks)}\n\n【分给你的这块】\n${task.lane ? `【${task.lane}】` : ''}${task.brief}\n\n${TOOL_MANUAL}\n\n现在去干你这块。回来说清三件事：查到/看到什么（带数字或来源）、它意味着什么、你不确定的是什么。150~250 字。`,
+        },
+      ];
+
+      const talkMessages = (agent, session, round, findings, talk) => {
+        const others = session.agents.filter((a) => a.id !== agent.id).map((a) => display(a)).join('、');
+        const fx = findings.map((f) => `—— ${nameOf(session.agents, f.agentId)} 的调查 ——\n${f.content}`).join('\n\n');
+        const said = talk.length ? `【刚才已经说过】\n${talk.map((t) => `${nameOf(session.agents, t.agentId)}：${t.content}`).join('\n\n')}\n\n` : '';
+        return [
+          { role: 'system', content: systemFor(agent) },
+          {
+            role: 'user',
+            content: `【问题】\n${session.blackboard.question}\n\n【三个人分别查到的东西】\n${fx}\n\n${said}现在是第 ${round} 轮讨论。你要跟 ${others} 真的对上话，而不是各说各的。\n\n这一轮至少做一件：指出他们某句话里一个具体的毛病，或者补一个他们都没有的角度并说清为什么它改变结论。\n\n150~250 字。像人吵架那样，别像写总结。`,
+          },
+        ];
+      };
+
+      const finalMessages = (agent, session, findings, talk) => {
+        const fx = findings.map((f) => `—— ${nameOf(session.agents, f.agentId)} 的调查 ——\n${f.content}`).join('\n\n');
+        const said = talk.map((t) => `${nameOf(session.agents, t.agentId)}：${t.content}`).join('\n\n');
+        return [
+          { role: 'system', content: systemFor(agent) },
+          {
+            role: 'user',
+            content: `【问题】\n${session.blackboard.question}\n\n【三个人查到的】\n${fx}\n\n【他们吵的内容】\n${said}\n\n现在你收口。用一段话（250~350 字）把你的判断说清楚：依据是什么、什么条件下会反过来、你会先做哪一步。\n\n两条不许破：\n- 没从工具里查到的数字，后面必须跟一个「估」字，不许当事实用。\n- 不许给「买入 / 卖出 / 建仓」这类指令。\n\n不要小标题，不要分点罗列。结尾必须恰好两行：\n\n一句话：<不超过 30 字>\n没谈拢：<一句话，没有就写「没有」>`,
+          },
+        ];
+      };
+
+      function parseConclusion(text) {
+        const one = String(text).match(/一句话[：:]\s*(.+)/);
+        const split = String(text).match(/没谈拢[：:]\s*(.+)/);
+        return { oneLiner: one ? one[1].trim() : '', breakdown: split ? split[1].trim() : '' };
+      }
+
+      const BANNED = ['同意', '赞同', '说得对', '好主意', '完全正确', '我赞成'];
+      function lint(text) {
+        const head = String(text).trimStart().slice(0, 30);
+        for (const w of BANNED) {
+          let at = head.indexOf(w);
+          while (at !== -1) {
+            if (head[at - 1] !== '不') return { matched: w, reason: `开头出现「${w}」，这段像是在附和` };
+            at = head.indexOf(w, at + 1);
+          }
+        }
+        return null;
+      }
+
+      /* ---------------- 假数据（没有 key 时用来看界面） ---------------- */
+
+      async function demoChat({ messages, onDelta }) {
+        const all = messages.map((m) => m.content).join('\n');
+        const isStock = /股票|茅台|涨|跌|行情/.test(all.slice(0, 600));
+        let text;
+        if (all.includes('只输出 JSON')) text = '{"tasks":[{"assignee":"critic","lane":"查新闻","brief":"查最近的新闻标题"},{"assignee":"builder","lane":"算数字","brief":"查行情，看量能"},{"assignee":"engineer","lane":"框架","brief":"给判断框架"}]}';
+        else if (all.includes('现在你收口')) text = `三个人吵到最后其实是同一件事的两面：一面看数字，一面看消息。两边都不算错，但都不完整。\n\n（这是演示数据：真跑需要先在设置里填 key。）\n\n一句话：演示模式，先在设置里填 key\n没谈拢：没有真数据，什么都谈不拢`;
+        else if (all.includes('真的对上话')) text = `你这句的数字是哪天的？我信不过。没有口径的数字，比没有数字更危险。（演示）`;
+        else text = isStock ? `我看到的只有一天的数据，撑不起判断，先记下这个缺口。（演示）` : `我先给个判断：小步开跑，跑通一次再谈优化。（演示）`;
+
+        let out = '';
+        for (let i = 0; i < text.length; i += 10) {
+          const d = text.slice(i, i + 10);
+          out += d;
+          onDelta?.(d, out);
+          await new Promise((r) => setTimeout(r, 12));
+        }
+        return { text: out };
+      }
+
+      /* ---------------- 编排 ---------------- */
+
+      let running = false;
+      let seq = 0;
+
+      function emit(h) { handle({ ...h, seq: seq++ }); }
+
+      async function runDiscussion(session, opts = {}) {
+        const as = session.agents;
+        const aborter = new AbortController();
+        running = true;
+        let findings = [];
+        let talk = [];
+
+        const call = async (agent, messages, onDelta) => {
+          const r = await streamChat({ agent, messages, maxTokens: 900, onDelta, signal: aborter.signal });
+          return r.text ?? '';
+        };
+
+        const turn = async (agent, phase, round, messages) => {
+          const t = { id: uid('t'), agentId: agent.id, phase, round, content: '', status: 'streaming' };
+          session.turns.push(t);
+          emit({ type: 'turn-start', turn: t });
+          try {
+            t.content = await call(agent, messages, (d, full) => {
+              t.content = full;
+              emit({ type: 'turn-delta', turnId: t.id, text: full });
+            });
+            t.status = 'done';
+            t.lint = lint(t.content);
+          } catch (err) {
+            t.status = 'failed';
+            t.error = String(err.message ?? err);
+            emit({ type: 'notice', message: `${display(agent)} 这条没跑通：${t.error}` });
+          }
+          emit({ type: 'turn-end', turn: t });
+          touch(session);
+          return t;
+        };
+
+        /* ① 分活 */
+        emit({ type: 'phase', phase: 'plan', round: 0 });
+        let tasks = opts.mode === 'assign' ? (opts.tasks ?? []) : [];
+        if (!tasks.length) {
+          const p = await turn(as[0], 'plan', 0, planMessages(as[0], session, opts.preference));
+          let parsed = null;
+          try {
+            const m = p.content.match(/\{[\s\S]*\}/);
+            parsed = m ? JSON.parse(m[0]) : null;
+          } catch {}
+          if (parsed?.tasks?.length) {
+            tasks = parsed.tasks.slice(0, 3).map((t, i) => ({
+              assignee: ['builder', 'critic', 'engineer'].includes(t.assignee) ? t.assignee : as[i % as.length].role,
+              lane: String(t.lane ?? '调查').slice(0, 8),
+              brief: String(t.brief ?? '从你的角度说清楚'),
+            }));
+          } else {
+            tasks = as.map((a) => ({ assignee: a.role, lane: '角度', brief: '从你的角度把这件事说清楚，该查就查。' }));
+          }
+        }
+        session.tasks = tasks;
+        emit({ type: 'plan', tasks, source: opts.mode === 'assign' ? 'user' : 'ai' });
+
+        /* ② 干活 */
+        emit({ type: 'phase', phase: 'work', round: 0 });
+        findings = await Promise.all(
+          tasks.map(async (task) => {
+            const agent = as.find((a) => a.role === task.assignee) ?? as[0];
+            const t = { id: uid('t'), agentId: agent.id, phase: 'work', round: 0, content: '', status: 'streaming' };
+            session.turns.push(t);
+            emit({ type: 'turn-start', turn: t });
+            const messages = workMessages(agent, session, task);
+            try {
+              for (let step = 0; step < 3; step += 1) {
+                t.content = await call(agent, messages, (d, full) => {
+                  t.content = full;
+                  emit({ type: 'turn-delta', turnId: t.id, text: full });
+                });
+                const calls = parseToolCalls(t.content);
+                if (!calls.length) break;
+                const results = [];
+                for (const c of calls) {
+                  emit({ type: 'tool', turnId: t.id, name: c.name, arg: c.arg, status: 'run' });
+                  const out = await runTool(c.name, c.arg);
+                  results.push(out);
+                  emit({ type: 'tool', turnId: t.id, name: c.name, arg: c.arg, status: 'done', preview: out.slice(0, 140) });
+                }
+                messages.push({ role: 'assistant', content: t.content });
+                messages.push({ role: 'user', content: `工具结果：\n\n${results.join('\n\n')}\n\n基于这些说你的发现。150~250 字，带具体数字。` });
+              }
+              t.status = 'done';
+            } catch (err) {
+              t.status = 'failed';
+              t.error = String(err.message ?? err);
+              emit({ type: 'notice', message: `${display(agent)} 这条没跑通：${t.error}` });
+            }
+            emit({ type: 'turn-end', turn: t });
+            touch(session);
+            return t;
+          }),
+        );
+
+        /* ③ 回到桌上 */
+        const rounds = Math.max(1, Math.min(Number(opts.rounds) || 2, 3));
+        for (let r = 1; r <= rounds; r += 1) {
+          emit({ type: 'phase', phase: 'talk', round: r });
+          for (const agent of as) {
+            const t = await turn(agent, 'talk', r, talkMessages(agent, session, r, findings, talk));
+            if (t.status === 'done') talk.push(t);
+          }
+        }
+
+        /* ④ 收口 */
+        const chair = as.find((a) => a.role === 'engineer') ?? as[as.length - 1];
+        emit({ type: 'phase', phase: 'final', round: 0 });
+        let f = await turn(chair, 'final', 0, finalMessages(chair, session, findings, talk));
+        if (f.status !== 'done') {
+          // 收口人挂了不能整场没有结论——换一个还能说话的人来收
+          const alt = as.find((a) => a.id !== chair.id && a.role === 'builder') ?? as.find((a) => a.id !== chair.id);
+          if (alt) {
+            emit({ type: 'notice', message: `${display(chair)} 没能收口，换 ${display(alt)} 来收` });
+            f = await turn(alt, 'final', 0, finalMessages(alt, session, findings, talk));
+          }
+        }
+        if (f.status === 'done') {
+          const c = parseConclusion(f.content);
+          session.blackboard = { ...session.blackboard, conclusion: c.oneLiner, breakdown: c.breakdown === '没有' ? '' : c.breakdown, body: f.content, tasks };
+          emit({ type: 'blackboard', blackboard: session.blackboard });
+        }
+        running = false;
+        emit({ type: 'run-end' });
+        touch(session);
+      }
+
+      /* ---------------- 渲染 ---------------- */
+
+      function renderChips() {
+        const box = $('#chips');
+        box.textContent = '';
+        const as = agents();
+        if (!as.length) {
+          box.append(el('span', 'chip off', '还没填 key'));
+          return;
+        }
+        for (const a of as) {
+          const c = el('span', 'chip');
+          c.append(el('i'));
+          c.append(document.createTextNode(`${display(a)} · ${a.model}`));
+          box.append(c);
+        }
+      }
+
+      function renderSessions() {
+        const ul = $('#sessions');
+        ul.textContent = '';
+        for (const s of sessions) {
+          const li = el('li', s.id === currentId ? 'on' : '', s.title || '未命名');
+          li.onclick = () => { currentId = s.id; persist(); renderAll(); };
+          ul.append(li);
+        }
+      }
+
+      function messageNode(turn, session) {
+        const agent = session.agents.find((a) => a.id === turn.agentId);
+        const role = agent?.role ?? 'user';
+        const node = el('div', `msg ${role === 'user' ? 'user' : ''}`);
+        node.dataset.turnId = turn.id;
+        const av = el('div', 'avatar', agent ? display(agent).slice(0, 1) : '我');
+        av.style.background = COLORS[role] ?? '#999';
+        const main = el('div', 'msg-main');
+        const head = el('div', 'msg-head');
+        head.append(el('span', 'msg-name', agent ? display(agent) : '你'));
+        if (agent) head.append(el('span', 'msg-seat', SEAT[role]));
+        const meta = el('div', 'msg-meta');
+        head.append(meta);
+        if (turn.lint) {
+          const d = el('span', 'warn-dot');
+          d.title = turn.lint.reason;
+          head.append(d);
+        }
+        main.append(head);
+        const body = el('div', 'msg-body', turn.content ?? '');
+        main.append(body);
+        node.append(av, main);
+        if (turn.status === 'streaming') node.classList.add('streaming');
+        if (turn.status === 'failed') node.classList.add('failed');
+        return node;
+      }
+
+      function planCard(tasks, session, source) {
+        const wrap = el('div', 'plan-card');
+        wrap.append(el('div', 'plan-head', source === 'user' ? '这次的分工（你定的）' : '他们自己分的工'));
+        tasks.forEach((t, i) => {
+          const row = el('div', 'plan-row');
+          const b = el('b', '', `${i + 1}. ${t.lane} `);
+          b.append(el('span', 'plan-who', '· ' + (session.agents.find((a) => a.role === t.assignee) ? display(session.agents.find((a) => a.role === t.assignee)) : t.assignee)));
+          row.append(b);
+          row.append(el('div', 'plan-line', t.brief));
+          wrap.append(row);
+        });
+        return wrap;
+      }
+
+      function renderMessages(session) {
+        const box = $('#messages');
+        box.textContent = '';
+        if (!session || !session.turns.length) {
+          box.innerHTML = `<div class="empty" id="empty"><h1>三个人，一个问题</h1><p>他们先去查各自该查的东西，然后回到桌上互相挑错，最后给你一句能用的判断。</p><div><button class="hint">茅台这只股票接下来会怎么走？</button><button class="hint">要不要自己写一个框架？</button><button class="hint">这个方案最坏会怎么坏？</button></div></div>`;
+          return;
+        }
+        let lastPhase = null;
+        for (const t of session.turns) {
+          if (t.phase === 'plan') continue;
+          if (t.phase !== lastPhase && t.phase !== 'user') {
+            lastPhase = t.phase;
+            box.append(el('div', 'divider', { work: '三个人分头去查', talk: `第 ${t.round} 轮讨论`, final: '收口' }[t.phase] ?? t.phase));
+          }
+          box.append(messageNode(t, session));
+        }
+        if (session.tasks?.length) box.prepend(planCard(session.tasks, session, 'user'));
+        box.scrollTop = box.scrollHeight;
+      }
+
+      function renderBoard(session) {
+        const box = $('#board-body');
+        box.textContent = '';
+        const bb = session?.blackboard;
+        if (!bb?.question) { box.append(el('p', 'muted', '还没开始。')); return; }
+        const sec = (t, n) => { const w = el('div', 'board-sec'); w.append(el('h4', '', t)); w.append(n); box.append(w); };
+        sec('问题', el('p', '', bb.question));
+        if (bb.conclusion) sec('一句话', el('div', 'conclusion', bb.conclusion));
+        if (bb.breakdown) sec('没谈拢', el('p', '', bb.breakdown));
+        if (session.tasks?.length) {
+          const ul = el('ul');
+          for (const t of session.tasks) ul.append(el('li', '', `${t.lane}：${t.brief}`));
+          sec('分工', ul);
+        }
+      }
+
+      function renderAll() {
+        renderChips();
+        renderSessions();
+        const s = current();
+        if (s) { renderMessages(s); renderBoard(s); }
+        else { renderMessages(null); renderBoard(null); }
+      }
+
+      /* ---------------- 事件 ---------------- */
+
+      function handle(ev) {
+        const box = $('#messages');
+        const s = current();
+        if (!s) return;
+        switch (ev.type) {
+          case 'phase':
+            if (ev.phase === 'work') box.append(el('div', 'divider', '三个人分头去查'));
+            if (ev.phase === 'talk') box.append(el('div', 'divider', `第 ${ev.round} 轮讨论`));
+            if (ev.phase === 'final') box.append(el('div', 'divider', '收口'));
+            break;
+          case 'plan':
+            box.append(el('div', 'divider', '分工'));
+            box.append(planCard(ev.tasks, s, ev.source));
+            break;
+          case 'turn-start':
+            if (ev.turn.phase === 'plan') break;
+            $('#empty')?.remove();
+            box.append(messageNode(ev.turn, s));
+            box.scrollTop = box.scrollHeight;
+            break;
+          case 'turn-delta': {
+            const body = box.querySelector(`[data-turn-id="${ev.turnId}"] .msg-body`);
+            if (body) { body.textContent = ev.text; box.scrollTop = box.scrollHeight; }
+            break;
+          }
+          case 'tool': {
+            const node = box.querySelector(`[data-turn-id="${ev.turnId}"] .msg-main`);
+            if (node && ev.status === 'done') {
+              const line = el('div', 'tool-line');
+              line.append(el('span', 'tool-name', `⚙ ${ev.name === 'quote' ? '查行情' : '查新闻'} ${ev.arg}`));
+              line.append(document.createTextNode(' → ' + String(ev.preview).replace(/\s+/g, ' ').slice(0, 90)));
+              node.append(line);
+            }
+            break;
+          }
+          case 'turn-end': {
+            const node = box.querySelector(`[data-turn-id="${ev.turn.id}"]`);
+            if (!node) break;
+            node.classList.remove('streaming');
+            if (ev.turn.status === 'failed') node.classList.add('failed');
+            node.querySelector('.msg-body').textContent = ev.turn.content ?? '';
+            if (ev.turn.lint) {
+              const d = el('span', 'warn-dot');
+              d.title = ev.turn.lint.reason;
+              node.querySelector('.msg-head').append(d);
+            }
+            break;
+          }
+          case 'blackboard':
+            renderBoard(s);
+            break;
+          case 'notice':
+            box.append(el('div', 'divider', ev.message));
+            break;
+          case 'run-end':
+            running = false;
+            $('#send').textContent = '提问';
+            $('#send').disabled = false;
+            $('#hint').textContent = '';
+            renderSessions();
+            break;
+        }
+      }
+
+      function setMode(m) {
+        for (const b of $('#modes').children) b.classList.toggle('on', b.dataset.mode === m);
+        $('#assign').classList.toggle('hidden', m !== 'assign');
+        $('#fuzzy').classList.toggle('hidden', m !== 'fuzzy');
+      }
+
+      async function ask() {
+        if (running) return;
+        const text = $('#input').value.trim();
+        if (!text) return;
+        const as = agents();
+        if (!as.length) { openSettings(); return; }
+
+        $('#input').value = '';
+        let s = current();
+        if (!s) s = newSession(text.slice(0, 14));
+        s.agents = as;
+        s.blackboard = { ...s.blackboard, question: text, conclusion: '', breakdown: '' };
+        s.title = s.title === '新对话' ? text.slice(0, 14) : s.title;
+        touch(s);
+
+        const mode = [...$('#modes').children].find((b) => b.classList.contains('on'))?.dataset.mode ?? 'self';
+        const tasks = mode === 'assign'
+          ? [...document.querySelectorAll('#assign input')].filter((i) => i.value.trim()).map((i) => ({ assignee: i.dataset.role, lane: '', brief: i.value.trim() }))
+          : [];
+        const preference = mode === 'fuzzy' ? $('#pref').value.trim() : '';
+
+        running = true;
+        $('#send').disabled = true;
+        $('#send').textContent = '跑着';
+        $('#hint').textContent = '跑着…';
+        renderMessages(s);
+        renderBoard(s);
+
+        const head = el('div', 'msg user');
+        const av = el('div', 'avatar', '我');
+        av.style.background = COLORS.user;
+        const main = el('div');
+        const h = el('div', 'msg-head');
+        h.append(el('span', 'msg-name', '你'));
+        main.append(h, el('div', 'msg-body', text));
+        head.append(av, main);
+        $('#messages').append(head);
+
+        try {
+          await runDiscussion(s, { mode, tasks, preference, rounds: Number($('#rounds').value) });
+        } catch (err) {
+          $('#messages').append(el('div', 'banner', `跑挂了：${err.message}`));
+          running = false;
+          $('#send').disabled = false;
+          $('#send').textContent = '提问';
+        }
+      }
+
+      function openSettings() {
+        for (const p of ['deepseek', 'openai', 'gemini']) {
+          $('#k-' + p).value = settings.keys[p] ?? '';
+          $('#m-' + p).value = settings.models[p] ?? '';
+        }
+        $('#dlg').showModal();
+      }
+
+      $('#settings').onclick = openSettings;
+      $('#save').onclick = () => {
+        for (const p of ['deepseek', 'openai', 'gemini']) {
+          const k = $('#k-' + p).value.trim();
+          const m = $('#m-' + p).value.trim();
+          if (k) settings.keys[p] = k; else delete settings.keys[p];
+          if (m) settings.models[p] = m; else delete settings.models[p];
+        }
+        persist();
+        $('#dlg').close();
+        renderAll();
+      };
+      $('#demo').onclick = () => {
+        settings.keys = { deepseek: 'demo', openai: 'demo', gemini: 'demo' };
+        settings.models = {};
+        persist();
+        $('#dlg').close();
+        renderAll();
+      };
+
+      $('#send').onclick = ask;
+      $('#input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(); }
+      });
+      $('#modes').onclick = (e) => {
+        const b = e.target.closest('button[data-mode]');
+        if (b) setMode(b.dataset.mode);
+      };
+      $('#rounds').oninput = (e) => { $('#rounds-val').textContent = e.target.value; };
+      $('#new').onclick = () => { newSession(); renderAll(); };
+
+      document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('hint')) { $('#input').value = e.target.textContent; $('#input').focus(); }
+      });
+
+      /* demo provider 伪装成三家 */
+      const origAgents = agents;
+      agents = function () {
+        const list = origAgents();
+        if (list.length === 3 && list.every((a) => a.key === 'demo')) {
+          return list.map((a) => ({ ...a, provider: 'demo' }));
+        }
+        return list;
+      };
+
+      setMode('self');
+      if (location.hash === '#demo' && !settings.keys.deepseek) {
+        settings.keys = { deepseek: 'demo', openai: 'demo', gemini: 'demo' };
+        persist();
+      }
+      renderAll();
+      if (!agents().length && !sessions.length && location.hash !== '#demo') setTimeout(openSettings, 300);
+
+      // 深链：?q=问题&mode=fuzzy —— 打开就直接问，方便分享一个「问题配方」
+      const q = new URLSearchParams(location.search).get('q');
+      if (q && agents().length) {
+        const m = new URLSearchParams(location.search).get('mode');
+        if (m) { setMode(m); }
+        $('#input').value = q;
+        setTimeout(() => ask(), 60);
+      }
+    </script>
+  </body>
+</html>
